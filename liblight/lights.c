@@ -16,6 +16,7 @@
 
 
 //#define LOG_NDEBUG 0
+#define LOG_TAG "lights"
 
 #include <cutils/log.h>
 
@@ -35,30 +36,28 @@
 
 static pthread_once_t g_init = PTHREAD_ONCE_INIT;
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
+
 static struct light_state_t g_notification;
 static struct light_state_t g_battery;
 static struct light_state_t g_attention;
 
-char const*const RED_LED_FILE
-        = "/sys/class/leds/red/brightness";
+char const*const LCD_FILE = "/sys/class/leds/lcd-backlight/brightness";
 
-char const*const GREEN_LED_FILE
-        = "/sys/class/leds/green/brightness";
+char const*const RED_LED_FILE = "/sys/class/leds/red/brightness";
+char const*const BLUE_LED_FILE = "/sys/class/leds/blue/brightness";
+char const*const GREEN_LED_FILE = "/sys/class/leds/green/brightness";
 
-char const*const BLUE_LED_FILE
-        = "/sys/class/leds/blue/brightness";
+char const*const RED_LED_BLINK_FILE = "/sys/class/leds/red/blink";
+char const*const GREEN_LED_BLINK_FILE = "/sys/class/leds/green/blink";
+char const*const BLUE_LED_BLINK_FILE = "/sys/class/leds/blue/blink";
 
-char const*const LCD_FILE
-        = "/sys/class/leds/lcd-backlight/brightness";
+char const*const RED_LED_DUTY_FILE = "/sys/class/leds/red/duty_pcts";
+char const*const GREEN_LED_DUTY_FILE = "/sys/class/leds/green/duty_pcts";
+char const*const BLUE_LED_DUTY_FILE = "/sys/class/leds/blue/duty_pcts";
 
-char const*const RED_BLINK_FILE
-        = "/sys/class/leds/red/blink";
-
-char const*const GREEN_BLINK_FILE
-        = "/sys/class/leds/green/blink";
-
-char const*const BLUE_BLINK_FILE
-        = "/sys/class/leds/blue/blink";
+char const*const RED_LED_RAMP_STEP_FILE = "/sys/class/leds/red/ramp_step_ms";
+char const*const GREEN_LED_RAMP_STEP_FILE = "/sys/class/leds/green/ramp_step_ms";
+char const*const BLUE_LED_RAMP_STEP_FILE = "/sys/class/leds/blue/ramp_step_ms";
 
 /*
  * device methods
@@ -70,8 +69,7 @@ void init_globals(void)
     pthread_mutex_init(&g_lock, NULL);
 }
 
-static int
-write_int(char const* path, int value)
+static int write_int(char const* path, int value)
 {
     int fd;
     static int already_warned = 0;
@@ -92,14 +90,12 @@ write_int(char const* path, int value)
     }
 }
 
-static int
-is_lit(struct light_state_t const* state)
+static int is_lit(struct light_state_t const* state)
 {
     return state->color & 0x00ffffff;
 }
 
-static int
-rgb_to_brightness(struct light_state_t const* state)
+static int rgb_to_brightness(struct light_state_t const* state)
 {
     int color = state->color & 0x00ffffff;
     return ((77 * ((color >> 16) & 0x00ff))
@@ -107,8 +103,7 @@ rgb_to_brightness(struct light_state_t const* state)
             + (29 * (color & 0x00ff))) >> 8;
 }
 
-static int
-set_light_backlight(struct light_device_t* dev,
+static int set_light_backlight(struct light_device_t* dev,
         struct light_state_t const* state)
 {
     int err = 0;
@@ -121,12 +116,11 @@ set_light_backlight(struct light_device_t* dev,
     return err;
 }
 
-static int
-set_speaker_light_locked(struct light_device_t* dev,
+static int set_speaker_light_locked(struct light_device_t* dev,
         struct light_state_t const* state)
 {
     int red, green, blue;
-    int blink;
+    int blink, duty_pcts, ramp_step_ms;
     int onMS, offMS;
     unsigned int colorRGB;
 
@@ -153,10 +147,20 @@ set_speaker_light_locked(struct light_device_t* dev,
     green = (colorRGB >> 8) & 0xFF;
     blue = colorRGB & 0xFF;
 
-    if (onMS > 0 && offMS > 0) {
+    if (onMS > 0 && offMS > 0 && is_lit(state)) {
+        int totalMS = onMS + offMS;
+
+        // ramp_step_ms: time before loading next LUT pattern in millisecond
+        ramp_step_ms = totalMS / 50;
+
+        // duty_pcts: pointer to an array of duty percentage for a pwm period
+        duty_pcts = (onMS * 255) / totalMS;
+
         blink = 1;
     } else {
         blink = 0;
+        duty_pcts = 0;
+        ramp_step_ms = 0;
     }
 
     write_int(RED_LED_FILE, red);
@@ -164,19 +168,27 @@ set_speaker_light_locked(struct light_device_t* dev,
     write_int(BLUE_LED_FILE, blue);
 
     if (blink) {
-        if (red)
-            write_int(RED_BLINK_FILE, blink);
-        if (green)
-            write_int(GREEN_BLINK_FILE, blink);
-        if (blue)
-            write_int(BLUE_BLINK_FILE, blink);
+        if (red) {
+            write_int(RED_LED_BLINK_FILE, blink);
+            write_int(RED_LED_DUTY_FILE, duty_pcts);
+            write_int(RED_LED_RAMP_STEP_FILE, ramp_step_ms);
+        }
+        if (green) {
+            write_int(GREEN_LED_BLINK_FILE, blink);
+            write_int(GREEN_LED_DUTY_FILE, duty_pcts);
+            write_int(GREEN_LED_RAMP_STEP_FILE, ramp_step_ms);
+        }
+        if (blue) {
+            write_int(BLUE_LED_BLINK_FILE, blink);
+            write_int(BLUE_LED_DUTY_FILE, duty_pcts);
+            write_int(BLUE_LED_RAMP_STEP_FILE, ramp_step_ms);
+        }
     }
 
     return 0;
 }
 
-static void
-handle_speaker_battery_locked(struct light_device_t* dev)
+static void handle_speaker_battery_locked(struct light_device_t* dev)
 {
     if (is_lit(&g_attention)) {
         set_speaker_light_locked(dev, &g_attention);
@@ -187,8 +199,7 @@ handle_speaker_battery_locked(struct light_device_t* dev)
     }
 }
 
-static int
-set_light_attention(struct light_device_t* dev,
+static int set_light_attention(struct light_device_t* dev,
         struct light_state_t const* state)
 {
     pthread_mutex_lock(&g_lock);
@@ -203,8 +214,7 @@ set_light_attention(struct light_device_t* dev,
     return 0;
 }
 
-static int
-set_light_notifications(struct light_device_t* dev,
+static int set_light_notifications(struct light_device_t* dev,
         struct light_state_t const* state)
 {
     pthread_mutex_lock(&g_lock);
@@ -214,8 +224,7 @@ set_light_notifications(struct light_device_t* dev,
     return 0;
 }
 
-static int
-set_light_battery(struct light_device_t* dev,
+static int set_light_battery(struct light_device_t* dev,
         struct light_state_t const* state)
 {
     pthread_mutex_lock(&g_lock);
@@ -226,8 +235,7 @@ set_light_battery(struct light_device_t* dev,
 }
 
 /* Close the lights device */
-static int
-close_lights(struct light_device_t *dev)
+static int close_lights(struct light_device_t *dev)
 {
     if (dev) {
         free(dev);
@@ -286,7 +294,7 @@ struct hw_module_t HAL_MODULE_INFO_SYM = {
     .version_major = 1,
     .version_minor = 0,
     .id = LIGHTS_HARDWARE_MODULE_ID,
-    .name = "armani lights Module",
+    .name = "armani lights module",
     .author = "Google, Inc., CyanogenMod",
     .methods = &lights_module_methods,
 };
