@@ -104,8 +104,7 @@ MAX_EGL_CACHE_SIZE := 2048*1024
 
 # Init
 TARGET_UNIFIED_DEVICE := true
-TARGET_INIT_VENDOR_LIB := libinit_msm
-TARGET_LIBINIT_DEFINES_FILE := device/xiaomi/armani/init/init_armani.c
+TARGET_INIT_VENDOR_LIB := libinit_armani
 
 # Lights
 TARGET_PROVIDES_LIBLIGHT := true
