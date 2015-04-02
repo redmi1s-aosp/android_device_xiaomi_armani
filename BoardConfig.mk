@@ -114,6 +114,8 @@ BOARD_USES_QCOM_HARDWARE := true
 
 # Recovery
 TARGET_RECOVERY_FSTAB := device/xiaomi/armani/rootdir/etc/fstab.qcom
+TARGET_RECOVERY_FSTYPE_MOUNT_OPTIONS := ext4=max_batch_time=0,commit=1,data=ordered,nobarrier,errors=panic,nodelalloc
+TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_RECOVERY_PIXEL_FORMAT := "RGBX_8888"
 COMMON_GLOBAL_CFLAGS += -DNO_SECURE_DISCARD
 
