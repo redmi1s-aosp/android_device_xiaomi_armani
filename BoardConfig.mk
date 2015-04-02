@@ -81,6 +81,9 @@ EXTENDED_FONT_FOOTPRINT := true
 TARGET_GPS_HAL_PATH := device/xiaomi/armani/gps
 TARGET_PROVIDES_GPS_LOC_API := true
 
+# QCRIL
+TARGET_RIL_VARIANT := caf
+
 # Graphics
 TARGET_USES_C2D_COMPOSITION := true
 TARGET_USES_ION := true
