@@ -96,7 +96,9 @@ PRODUCT_PACKAGES += \
 
 # GPS
 PRODUCT_PACKAGES += \
-    gps.msm8226
+    gps.msm8226 \
+    libbson \
+    libnl_2
 
 PRODUCT_PACKAGES += \
     flp.conf \
