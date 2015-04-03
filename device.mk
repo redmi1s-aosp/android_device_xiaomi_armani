@@ -104,8 +104,6 @@ PRODUCT_PACKAGES += \
     flp.conf \
     gps.conf \
     izat.conf \
-    lowi.conf \
-    msap.conf \
     quipc.conf \
     sap.conf \
     xtwifi.conf
