@@ -106,6 +106,9 @@ TARGET_INIT_VENDOR_LIB := libinit_armani
 # Lights
 TARGET_PROVIDES_LIBLIGHT := true
 
+# Memory
+MALLOC_IMPL := dlmalloc
+
 # Power
 TARGET_POWERHAL_VARIANT := qcom
 
